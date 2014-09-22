@@ -75,4 +75,6 @@ oneway interface IConnectionService {
     void swapConference(String conferenceCallId);
 
     void onPostDialContinue(String callId, boolean proceed);
+
+    void addParticipantWithConference(String callId, String recipients);
 }

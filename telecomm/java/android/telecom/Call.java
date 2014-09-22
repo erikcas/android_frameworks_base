@@ -217,6 +217,12 @@ public final class Call {
          */
         public static final int CAPABILITY_VOICE_PRIVACY = 0x00400000;
 
+        /**
+         * Add participant in an active or conference call option
+         * @hide
+         */
+        public static final int CAPABILITY_ADD_PARTICIPANT = 0x02000000;
+
         //******************************************************************************************
         // Next CAPABILITY value: 0x00800000
         //******************************************************************************************
@@ -346,6 +352,9 @@ public final class Call {
             }
             if (can(capabilities, CAPABILITY_VOICE_PRIVACY)) {
                 builder.append(" CAPABILITY_VOICE_PRIVACY");
+            }
+            if (can(capabilities, CAPABILITY_ADD_PARTICIPANT)) {
+                builder.append(" CAPABILITY_ADD_PARTICIPANT");
             }
             builder.append("]");
             return builder.toString();
