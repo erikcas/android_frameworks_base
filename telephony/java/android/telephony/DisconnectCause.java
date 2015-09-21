@@ -250,6 +250,11 @@ public class DisconnectCause {
         TODO: Not changing the max value as it will need API update. */
     public static final int MAXIMUM_VALID_VALUE = INTERWORKING_UNSPECIFIED;
 
+    /** EMERGENCY call failed with temporary fail cause */
+    public static final int EMERGENCY_TEMP_FAILURE         = 91;
+    /** EMERGENCY call failed with permanent fail cause */
+    public static final int EMERGENCY_PERM_FAILURE         = 92;
+
     /** Private constructor to avoid class instantiation. */
     private DisconnectCause() {
         // Do nothing.
