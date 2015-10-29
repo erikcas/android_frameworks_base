@@ -188,6 +188,7 @@ public class ImsCallProfile implements Parcelable {
     public static final String EXTRA_CODEC = "Codec";
     public static final String EXTRA_DISPLAY_TEXT = "DisplayText";
     public static final String EXTRA_ADDITIONAL_CALL_INFO = "AdditionalCallInfo";
+    public static final String EXTRA_CALL_RAT_TYPE = "CallRadioTech";
 
     /**
      * Extra key which the RIL can use to indicate the radio technology used for a call.
