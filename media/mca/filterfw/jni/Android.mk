@@ -34,7 +34,11 @@ LOCAL_SRC_FILES = jni_init.cpp \
                   jni_vertex_frame.cpp
 
 # Need FilterFW lib
+ifeq ($(BOARD_USES_QCOM_HARDWARE),true)
+include $(LOCAL_PATH)/../native-caf/libfilterfw.mk
+else
 include $(LOCAL_PATH)/../native/libfilterfw.mk
+endif
 
 # Also need the JNI headers.
 LOCAL_C_INCLUDES += \
