@@ -28,6 +28,7 @@ import android.app.ActivityManagerNative;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.KeyguardManager;
+import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -51,7 +52,6 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.Vibrator;
 import android.provider.Settings;
-import android.provider.Settings.Global;
 import android.service.dreams.DreamService;
 import android.service.dreams.IDreamManager;
 import android.telephony.PhoneStateListener;
@@ -76,6 +76,7 @@ import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -107,17 +108,20 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
     private static final String GLOBAL_ACTION_KEY_REBOOT = "reboot";
     private static final String GLOBAL_ACTION_KEY_REBOOT_RECOVERY = "reboot_recovery";
     private static final String GLOBAL_ACTION_KEY_REBOOT_BOOTLOADER = "reboot_bootloader";
+    private static final String GLOBAL_ACTION_KEY_DND = "dnd";
 
     private final Context mContext;
     private final WindowManagerFuncs mWindowManagerFuncs;
     private final AudioManager mAudioManager;
     private final IDreamManager mDreamManager;
+    private final NotificationManager mNoMan;
 
     private ArrayList<Action> mItems;
     private GlobalActionsDialog mDialog;
 
     private Action mSilentModeAction;
     private ToggleAction mAirplaneModeOn;
+    private Action mDndModeAction;
 
     private MyAdapter mAdapter;
 
@@ -141,6 +145,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         mDreamManager = IDreamManager.Stub.asInterface(
                 ServiceManager.getService(DreamService.DREAM_SERVICE));
+        mNoMan = (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
 
         // receive broadcasts
         IntentFilter filter = new IntentFilter();
@@ -222,6 +227,14 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         }
     }
 
+    private void back() {
+        mRebootMenu = false;
+        mMenuActions = mContext.getResources().getStringArray(
+                com.android.internal.R.array.config_globalActionsList);
+        buildMenuList();
+        mAdapter.notifyDataSetChanged();
+    }
+
     /**
      * Create the global actions dialog.
      * @return A new dialog.
@@ -233,9 +246,10 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         } else {
             mSilentModeAction = new SilentModeTriStateAction(mContext, mAudioManager, mHandler);
         }
+        mDndModeAction = new DndModeStateAction(mContext, mHandler, mNoMan);
         mAirplaneModeOn = new ToggleAction(
-                R.drawable.ic_lock_airplane_mode,
-                R.drawable.ic_lock_airplane_mode_off,
+                R.drawable.ic_global_airplane_mode,
+                R.drawable.ic_global_airplane_mode_off,
                 R.string.global_actions_toggle_airplane_mode,
                 R.string.global_actions_airplane_mode_on_status,
                 R.string.global_actions_airplane_mode_off_status) {
@@ -341,27 +355,29 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
                 mItems.add(new RebootBootloaderAction());
             } else if (GLOBAL_ACTION_KEY_AIRPLANE.equals(actionKey)) {
                 mItems.add(mAirplaneModeOn);
-            } else if (GLOBAL_ACTION_KEY_BUGREPORT.equals(actionKey)) {
+            /*} else if (GLOBAL_ACTION_KEY_BUGREPORT.equals(actionKey)) {
                 if (Settings.Global.getInt(mContext.getContentResolver(),
                         Settings.Global.BUGREPORT_IN_POWER_MENU, 0) != 0 && isCurrentUserOwner()) {
                     mItems.add(getBugReportAction());
-                }
+                }*/
             } else if (GLOBAL_ACTION_KEY_SILENT.equals(actionKey)) {
                 if (mShowSilentToggle) {
                     mItems.add(mSilentModeAction);
                 }
-            } else if (GLOBAL_ACTION_KEY_USERS.equals(actionKey)) {
-                if (SystemProperties.getBoolean("fw.power_user_switcher", false)) {
+            /*} else if (GLOBAL_ACTION_KEY_USERS.equals(actionKey)) {
+                if (SystemProperties.getBoolean("fw.power_user_switcher", true)) {
                     addUsersToMenu(mItems);
-                }
+                }*/
             } else if (GLOBAL_ACTION_KEY_SETTINGS.equals(actionKey)) {
                 mItems.add(getSettingsAction());
             } else if (GLOBAL_ACTION_KEY_LOCKDOWN.equals(actionKey)) {
                 mItems.add(getLockdownAction());
             } else if (GLOBAL_ACTION_KEY_VOICEASSIST.equals(actionKey)) {
                 mItems.add(getVoiceAssistAction());
-            } else if (GLOBAL_ACTION_KEY_ASSIST.equals(actionKey)) {
-                mItems.add(getAssistAction());
+            /*} else if (GLOBAL_ACTION_KEY_ASSIST.equals(actionKey)) {
+                mItems.add(getAssistAction());*/
+            } else if (GLOBAL_ACTION_KEY_DND.equals(actionKey)) {
+                mItems.add(mDndModeAction);
             } else {
                 Log.e(TAG, "Invalid global action key " + actionKey);
             }
@@ -372,7 +388,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
     private final class PowerAction extends SinglePressAction implements LongPressAction {
         private PowerAction() {
-            super(com.android.internal.R.drawable.ic_lock_power_off,
+            super(com.android.internal.R.drawable.ic_global_power_off,
                 R.string.global_action_power_off);
         }
 
@@ -415,7 +431,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
     private final class RebootAction extends SinglePressAction {
         private RebootAction() {
-            super(com.android.internal.R.drawable.ic_lock_power_reboot,
+            super(com.android.internal.R.drawable.ic_global_power_reboot,
                     R.string.global_action_reboot);
             if (mRebootMenu) {
                 mMessageResId = R.string.global_action_reboot_sub;
@@ -468,7 +484,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
     private final class RebootRecoveryAction extends SinglePressAction {
         private RebootRecoveryAction() {
-            super(com.android.internal.R.drawable.ic_lock_power_rebootrecovery,
+            super(com.android.internal.R.drawable.ic_global_power_rebootrecovery,
                     R.string.global_action_reboot_recovery);
         }
 
@@ -500,7 +516,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
     private final class RebootBootloaderAction extends SinglePressAction {
         private RebootBootloaderAction() {
-            super(com.android.internal.R.drawable.ic_lock_power_rebootbootloader,
+            super(com.android.internal.R.drawable.ic_global_power_rebootbootloader,
                     R.string.global_action_reboot_bootloader);
         }
 
@@ -569,12 +585,12 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
             @Override
             public boolean showDuringKeyguard() {
-                return true;
+                return false;
             }
 
             @Override
             public boolean showDuringRestrictedKeyguard() {
-                return true;
+                return false;
             }
 
             @Override
@@ -598,7 +614,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
     }
 
     private Action getSettingsAction() {
-        return new SinglePressAction(com.android.internal.R.drawable.ic_settings,
+        return new SinglePressAction(com.android.internal.R.drawable.ic_global_settings,
                 R.string.global_action_settings) {
 
             @Override
@@ -610,7 +626,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
             @Override
             public boolean showDuringKeyguard() {
-                return true;
+                return false;
             }
 
            @Override
@@ -642,17 +658,17 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
             @Override
             public boolean showDuringKeyguard() {
-                return true;
+                return false;
             }
 
             @Override
             public boolean showDuringRestrictedKeyguard() {
-                return true;
+                return false;
             }
 
             @Override
             public boolean showBeforeProvisioning() {
-                return true;
+                return false;
             }
 
             @Override
@@ -663,7 +679,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
     }
 
     private Action getVoiceAssistAction() {
-        return new SinglePressAction(com.android.internal.R.drawable.ic_voice_search,
+        return new SinglePressAction(com.android.internal.R.drawable.ic_global_voice_search,
                 R.string.global_action_voice_assist) {
             @Override
             public void onPress() {
@@ -674,7 +690,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
             @Override
             public boolean showDuringKeyguard() {
-                return true;
+                return false;
             }
 
             @Override
@@ -684,7 +700,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
             @Override
             public boolean showBeforeProvisioning() {
-                return true;
+                return false;
             }
 
             @Override
@@ -695,7 +711,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
     }
 
     private Action getLockdownAction() {
-        return new SinglePressAction(com.android.internal.R.drawable.ic_lock_lock,
+        return new SinglePressAction(com.android.internal.R.drawable.ic_global_lock,
                 R.string.global_action_lockdown) {
 
             @Override
@@ -710,12 +726,12 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
             @Override
             public boolean showDuringKeyguard() {
-                return true;
+                return false;
             }
 
             @Override
             public boolean showDuringRestrictedKeyguard() {
-                return true;
+                return false;
             }
 
             @Override
@@ -797,10 +813,10 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         mAirplaneModeOn.updateState(mAirplaneState);
         mAdapter.notifyDataSetChanged();
         mDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_KEYGUARD_DIALOG);
-        if (mShowSilentToggle) {
+        /*if (mShowSilentToggle) {
             IntentFilter filter = new IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION);
             mContext.registerReceiver(mRingerModeReceiver, filter);
-        }
+        }*/
     }
 
     private void refreshSilentMode() {
@@ -814,19 +830,20 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
     /** {@inheritDoc} */
     public void onDismiss(DialogInterface dialog) {
-        if (mShowSilentToggle) {
+        /*if (mShowSilentToggle) {
             try {
                 mContext.unregisterReceiver(mRingerModeReceiver);
             } catch (IllegalArgumentException ie) {
                 // ignore this
                 Log.w(TAG, ie);
             }
-        }
+        }*/
     }
 
     /** {@inheritDoc} */
     public void onClick(DialogInterface dialog, int which) {
-        if (!(mAdapter.getItem(which) instanceof SilentModeTriStateAction)) {
+        if (!(mAdapter.getItem(which) instanceof SilentModeTriStateAction) &&
+                !(mAdapter.getItem(which) instanceof DndModeStateAction)) {
             dialog.dismiss();
         }
         mAdapter.getItem(which).onPress();
@@ -1256,7 +1273,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
         @Override
         public boolean showBeforeProvisioning() {
-            return false;
+            return true;
         }
 
         @Override
@@ -1279,8 +1296,136 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         public void onClick(View v) {
             if (!(v.getTag() instanceof Integer)) return;
 
+            LinearLayout parent = (LinearLayout) v.getParent();
+            int count = parent.getChildCount();
+            for (int i = 0; i < count; i++) {
+                final View child = parent.getChildAt(i);
+                child.setSelected(false);
+            }
+
             int index = (Integer) v.getTag();
+            v.setSelected(true);
             mAudioManager.setRingerModeInternal(indexToRingerMode(index));
+            mHandler.sendEmptyMessageDelayed(MESSAGE_DISMISS, DIALOG_DISMISS_DELAY);
+        }
+    }
+
+    private static class DndModeStateAction implements Action, View.OnClickListener {
+
+        private final int[] ITEM_IDS = { R.id.option1, R.id.option2, R.id.option3, R.id.option4 };
+
+        private final Handler mHandler;
+        private final Context mContext;
+        private final NotificationManager mNoMan;
+
+        DndModeStateAction(Context context, Handler handler, NotificationManager noMan) {
+            mHandler = handler;
+            mContext = context;
+            mNoMan = noMan;
+        }
+
+        private int getZenModeSetting() {
+            return Settings.Global.getInt(mContext.getContentResolver(), Settings.Global.ZEN_MODE, Settings.Global.ZEN_MODE_OFF);
+        }
+
+        /*ZEN_MODE_OFF = 0;
+        ZEN_MODE_IMPORTANT_INTERRUPTIONS = 1;
+        ZEN_MODE_NO_INTERRUPTIONS = 2;
+        ZEN_MODE_ALARMS = 3;*/
+        
+        private int dndModeToIndex(int dndMode) {
+            switch(dndMode) {
+                case Settings.Global.ZEN_MODE_OFF:
+                    return 3;
+                case Settings.Global.ZEN_MODE_IMPORTANT_INTERRUPTIONS:
+                    return 2;
+                case Settings.Global.ZEN_MODE_ALARMS:
+                    return 1;
+                case Settings.Global.ZEN_MODE_NO_INTERRUPTIONS:
+                    return 0;
+            }
+            return 3;
+        }
+
+        private int indexToDndMode(int index) {
+            switch(index) {
+                case 3:
+                    return Settings.Global.ZEN_MODE_OFF;
+                case 2:
+                    return Settings.Global.ZEN_MODE_IMPORTANT_INTERRUPTIONS;
+                case 1:
+                    return Settings.Global.ZEN_MODE_ALARMS;
+                case 0:
+                    return Settings.Global.ZEN_MODE_NO_INTERRUPTIONS;
+            }
+            return Settings.Global.ZEN_MODE_OFF;
+        }
+
+        @Override
+        public CharSequence getLabelForAccessibility(Context context) {
+            return null;
+        }
+
+        public View create(Context context, View convertView, ViewGroup parent,
+                LayoutInflater inflater) {
+            View v = inflater.inflate(R.layout.global_actions_dnd_mode, parent, false);
+
+            int selectedIndex = dndModeToIndex(getZenModeSetting());
+            for (int i = 0; i < 4; i++) {
+                View itemView = v.findViewById(ITEM_IDS[i]);
+                itemView.setSelected(selectedIndex == i);
+                // Set up click handler
+                itemView.setTag(i);
+                itemView.setOnClickListener(this);
+            }
+            return v;
+        }
+
+        @Override
+        public boolean showDuringKeyguard() {
+            return true;
+        }
+
+        @Override
+        public boolean showDuringRestrictedKeyguard() {
+            return true;
+        }
+
+        @Override
+        public boolean showBeforeProvisioning() {
+            return true;
+        }
+
+        @Override
+        public boolean showForCurrentUser() {
+            return true;
+        }
+
+        public boolean isEnabled() {
+            return true;
+        }
+
+        void willCreate() {
+        }
+
+        @Override
+        public void onPress() {
+        }
+
+        @Override
+        public void onClick(View v) {
+            if (!(v.getTag() instanceof Integer)) return;
+
+            LinearLayout parent = (LinearLayout) v.getParent();
+            int count = parent.getChildCount();
+            for (int i = 0; i < count; i++) {
+                final View child = parent.getChildAt(i);
+                child.setSelected(false);
+            }
+
+            int index = (Integer) v.getTag();
+            v.setSelected(true);
+            mNoMan.setZenMode(indexToDndMode(index), null, TAG);
             mHandler.sendEmptyMessageDelayed(MESSAGE_DISMISS, DIALOG_DISMISS_DELAY);
         }
     }
@@ -1317,14 +1462,14 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         }
     };
 
-    private BroadcastReceiver mRingerModeReceiver = new BroadcastReceiver() {
+    /*private BroadcastReceiver mRingerModeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(AudioManager.RINGER_MODE_CHANGED_ACTION)) {
                 mHandler.sendEmptyMessage(MESSAGE_REFRESH);
             }
         }
-    };
+    };*/
 
     private ContentObserver mAirplaneModeObserver = new ContentObserver(new Handler()) {
         @Override
@@ -1463,10 +1608,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         }
 
         private static int getDialogTheme(Context context) {
-            TypedValue outValue = new TypedValue();
-            context.getTheme().resolveAttribute(com.android.internal.R.attr.alertDialogTheme,
-                    outValue, true);
-            return outValue.resourceId;
+            return com.android.internal.R.style.Theme_Material_DayNight_Dialog_Alert;
         }
 
         @Override

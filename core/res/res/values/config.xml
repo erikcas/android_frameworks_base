@@ -1986,12 +1986,14 @@
          "bugreport" = Take bug report, if available
          "silent" = silent mode
          "users" = list of users
+         "dnd" = dnd modes
          -->
     <string-array translatable="false" name="config_globalActionsList">
         <item>power</item>
         <item>reboot</item>
         <item>bugreport</item>
         <item>users</item>
+        <item>dnd</item>
     </string-array>
 
     <!-- Number of milliseconds to hold a wake lock to ensure that drawing is fully
@@ -2313,4 +2315,8 @@
     <!-- Allow the gesture to double tap the power button twice to start the camera while the device
          is non-interactive. -->
     <bool name="config_cameraDoubleTapPowerGestureEnabled">true</bool>
+
+    <!-- The BT name of the keyboard packaged with the device. If this is defined, SystemUI will
+         automatically try to pair with it when the device exits tablet mode. -->
+    <string translatable="false" name="config_packagedKeyboardName"></string>
 </resources>

@@ -316,7 +316,7 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
     // expanded notifications
     NotificationPanelView mNotificationPanel; // the sliding/resizing panel within the notification window
     View mExpandedContents;
-    TextView mNotificationPanelDebugText;
+    //TextView mNotificationPanelDebugText;
 
     // settings
     private QSPanel mQSPanel;
@@ -353,6 +353,7 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
     int[] mAbsPos = new int[2];
     ArrayList<Runnable> mPostCollapseRunnables = new ArrayList<>();
 
+    // omni additions
     private boolean mBrightnessControl;
     private boolean mBrightnessChanged;
     private float mScreenWidth;
@@ -364,12 +365,12 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
     private boolean mAutomatic;
     private IPowerManager mPower;
 
-    // omni additions
     private boolean mOmniSwitchRecents;
     private boolean mBackKillPending;
     private int mBackKillTimeout;
     private boolean mRecentsConsumed;
     private boolean mBackConsumed;
+    private boolean mDoubleTabSleep;
 
     /**
      * {@link android.provider.Settings.System#SCREEN_AUTO_BRIGHTNESS_ADJ} uses the range [-1, 1].
@@ -483,6 +484,16 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
             mContext.getContentResolver().registerContentObserver(Settings.System.getUriFor(
                     Settings.System.NAVIGATION_BAR_RECENTS),
                     false, this, UserHandle.USER_ALL);
+            mContext.getContentResolver().registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.DOUBLE_TAP_SLEEP_GESTURE),
+                    false, this, UserHandle.USER_ALL);
+            mContext.getContentResolver().registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.STATUS_BAR_HEADER_WEATHER),
+                    false, this, UserHandle.USER_ALL);
+            mContext.getContentResolver().registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.STATUS_BAR_WEATHER_ICON_PACK),
+                    false, this, UserHandle.USER_ALL);
+
             update();
         }
 
@@ -509,6 +520,14 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                     mContext.getContentResolver(), Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL, 0, mCurrentUserId) == 1;
             mOmniSwitchRecents = Settings.System.getIntForUser(
                     mContext.getContentResolver(), Settings.System.NAVIGATION_BAR_RECENTS, 0, mCurrentUserId) == 1;
+            mDoubleTabSleep = Settings.System.getIntForUser(
+                    mContext.getContentResolver(), Settings.System.DOUBLE_TAP_SLEEP_GESTURE, 0, mCurrentUserId) == 1;
+
+            if (mStatusBarWindow != null) {
+                mStatusBarWindow.setDoubleTabSleep(mDoubleTabSleep);
+            }
+
+            mHeader.settingsChanged();
         }
     }
     private OmniSettingsObserver mOmniSettingsObserver = new OmniSettingsObserver(mHandler);
@@ -820,11 +839,11 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
         mNotificationPanel.setHeadsUpManager(mHeadsUpManager);
         mNotificationData.setHeadsUpManager(mHeadsUpManager);
 
-        if (MULTIUSER_DEBUG) {
+        /*if (MULTIUSER_DEBUG) {
             mNotificationPanelDebugText = (TextView) mNotificationPanel.findViewById(
                     R.id.header_debug_info);
             mNotificationPanelDebugText.setVisibility(View.VISIBLE);
-        }
+        }*/
 
         try {
             mShowNavBar = mWindowManagerService.hasNavigationBar();
@@ -1314,6 +1333,11 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
     private void notifyNavigationBarScreenOn(boolean screenOn) {
         if (mNavigationBarView == null) return;
         mNavigationBarView.notifyScreenOn(screenOn);
+    }
+
+    private void notifyHeaderViewScreenOn(boolean screenOn) {
+        if (mHeader == null) return;
+        mHeader.notifyScreenOn(screenOn);
     }
 
     private WindowManager.LayoutParams getNavigationBarLayoutParams() {
@@ -3202,9 +3226,11 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                 notifyHeadsUpScreenOff();
                 finishBarAnimations();
                 resetUserExpandedStates();
+                notifyHeaderViewScreenOn(false);
             }
             else if (Intent.ACTION_SCREEN_ON.equals(action)) {
                 notifyNavigationBarScreenOn(true);
+                notifyHeaderViewScreenOn(true);
             } else if ("com.android.systemui.TOGGLE_FLASHLIGHT".equals(action)) {
                 mFlashlightController.toggleFlashlight();
             } else if (Intent.ACTION_KEYGUARD_WALLPAPER_CHANGED.equals(action)) {
@@ -3284,7 +3310,7 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
     @Override
     public void userSwitched(int newUserId) {
         super.userSwitched(newUserId);
-        if (MULTIUSER_DEBUG) mNotificationPanelDebugText.setText("USER " + newUserId);
+        //if (MULTIUSER_DEBUG) mNotificationPanelDebugText.setText("USER " + newUserId);
         animateCollapsePanels();
         updatePublicMode();
         updateNotifications();
@@ -3488,6 +3514,15 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
     @Override
     public boolean shouldDisableNavbarGestures() {
         return !isDeviceProvisioned() || (mDisabled1 & StatusBarManager.DISABLE_SEARCH) != 0;
+    }
+
+    public void postStartActivityDismissingKeyguard(final PendingIntent intent) {
+        mHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                startPendingIntentDismissingKeyguard(intent);
+            }
+        });
     }
 
     public void postStartActivityDismissingKeyguard(final Intent intent, int delay) {
@@ -4433,7 +4468,11 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
             pm.wakeUp(SystemClock.uptimeMillis(), "com.android.systemui:CAMERA_GESTURE");
             mStatusBarKeyguardViewManager.notifyDeviceWakeUpRequested();
         }
-        vibrateForCameraGesture();
+        final boolean vbrateForGesture = Settings.System.getIntForUser(
+                mContext.getContentResolver(), Settings.System.CAMERA_GESTURE_VIBRATE, 1, mCurrentUserId) == 1;
+        if(vbrateForGesture) {
+            vibrateForCameraGesture();
+        }
         if (!mStatusBarKeyguardViewManager.isShowing()) {
             startActivity(KeyguardBottomAreaView.INSECURE_CAMERA_INTENT,
                     true /* dismissShade */);
