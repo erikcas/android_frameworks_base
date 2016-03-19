@@ -250,12 +250,14 @@ public class DisconnectCause {
 
     /** Largest valid value for call disconnect codes.
         TODO: Not changing the max value as it will need API update. */
-    public static final int MAXIMUM_VALID_VALUE = INTERWORKING_UNSPECIFIED;
+    public static final int MAXIMUM_VALID_VALUE = NON_SELECTED_USER_CLEARING;
 
     /** EMERGENCY call failed with temporary fail cause */
     public static final int EMERGENCY_TEMP_FAILURE         = 91;
     /** EMERGENCY call failed with permanent fail cause */
     public static final int EMERGENCY_PERM_FAILURE         = 92;
+
+    public static final int NON_SELECTED_USER_CLEARING = 98;
 
     /** Private constructor to avoid class instantiation. */
     private DisconnectCause() {
@@ -363,6 +365,8 @@ public class DisconnectCause {
             return "IMS_MERGED_SUCCESSFULLY";
         case CDMA_ALREADY_ACTIVATED:
             return "CDMA_ALREADY_ACTIVATED";
+        case NON_SELECTED_USER_CLEARING:
+            return "NON_SELECTED_USER_CLEARING";
         default:
             return "INVALID: " + cause;
         }
