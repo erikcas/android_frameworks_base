@@ -198,9 +198,6 @@ public class DisconnectCause {
     // NextId: 50
     //*********************************************************************************************
 
-    /** Smallest valid value for call disconnect codes. */
-    public static final int MINIMUM_VALID_VALUE = NOT_DISCONNECTED;
-
     /** Largest valid value for call disconnect codes. */
     public static final int NO_CIRCUIT_AVAIL = 48;
     public static final int NO_ROUTE_TO_DESTINAON = 49;
@@ -248,16 +245,20 @@ public class DisconnectCause {
     public static final int LOCAL_LOW_BATTERY = 91;
     public static final int LOW_BATTERY = 92;
 
+    /** EMERGENCY call failed with temporary fail cause */
+    public static final int EMERGENCY_TEMP_FAILURE         = 93;
+    /** EMERGENCY call failed with permanent fail cause */
+    public static final int EMERGENCY_PERM_FAILURE         = 94;
+
+    public static final int NON_SELECTED_USER_CLEARING = 98;
+
+    /** Smallest valid value for call disconnect codes. */
+    public static final int MINIMUM_VALID_VALUE = NOT_DISCONNECTED;
+
     /** Largest valid value for call disconnect codes.
         TODO: Not changing the max value as it will need API update. */
     public static final int MAXIMUM_VALID_VALUE = NON_SELECTED_USER_CLEARING;
 
-    /** EMERGENCY call failed with temporary fail cause */
-    public static final int EMERGENCY_TEMP_FAILURE         = 91;
-    /** EMERGENCY call failed with permanent fail cause */
-    public static final int EMERGENCY_PERM_FAILURE         = 92;
-
-    public static final int NON_SELECTED_USER_CLEARING = 98;
 
     /** Private constructor to avoid class instantiation. */
     private DisconnectCause() {
